@@ -237,7 +237,414 @@ class _HomePageState extends State<HomePage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Kid Tracker'),
+        title: const Text('EV-04 Tracker'),
+        actions: [
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert),
+            onSelected: (value) => _handleMenuSelection(context, value),
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'manage_devices',
+                child: Row(
+                  children: [
+                    Icon(Icons.devices),
+                    SizedBox(width: 12),
+                    Text('Manage devices'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'settings',
+                child: Row(
+                  children: [
+                    Icon(Icons.settings),
+                    SizedBox(width: 12),
+                    Text('Settings'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'exit',
+                child: Row(
+                  children: [
+                    Icon(Icons.exit_to_app),
+                    SizedBox(width: 12),
+                    Text('Exit'),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          if (store.anySos) const _SosBanner(),
+          Expanded(
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(32.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    // App Logo/Title Section
+                    Icon(
+                      Icons.track_changes,
+                      size: 80,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'EV-04 Tracker',
+                      style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Keep your family safe and connected',
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 48),
+                    
+                    // Main Navigation Buttons
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 400),
+                      child: Column(
+                        children: [
+                          SizedBox(
+                            width: double.infinity,
+                            height: 64,
+                            child: FilledButton.icon(
+                              onPressed: () => _navigateToCallDevice(context),
+                              icon: const Icon(Icons.phone, size: 28),
+                              label: const Text(
+                                'Call Device',
+                                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                              ),
+                              style: FilledButton.styleFrom(
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          SizedBox(
+                            width: double.infinity,
+                            height: 64,
+                            child: FilledButton.tonalIcon(
+                              onPressed: () => _navigateToCheckLocation(context),
+                              icon: const Icon(Icons.location_on, size: 28),
+                              label: const Text(
+                                'Check Location',
+                                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                              ),
+                              style: FilledButton.styleFrom(
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    
+                    const SizedBox(height: 32),
+                    
+                    // Quick Status Info
+                    if (store.devices.isNotEmpty)
+                      Card(
+                        child: Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Column(
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.devices,
+                                    size: 20,
+                                    color: Theme.of(context).colorScheme.primary,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    '${store.devices.length} device${store.devices.length == 1 ? '' : 's'} connected',
+                                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              if (store.anySos) ...[
+                                const SizedBox(height: 8),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    const Icon(
+                                      Icons.emergency,
+                                      size: 20,
+                                      color: Colors.red,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      'SOS Alert Active',
+                                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                        color: Colors.red,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _handleMenuSelection(BuildContext context, String value) {
+    switch (value) {
+      case 'manage_devices':
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (context) => const ManageDevicesScreen()),
+        );
+        break;
+      case 'settings':
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (context) => const SettingsScreen()),
+        );
+        break;
+      case 'exit':
+        _showExitDialog(context);
+        break;
+    }
+  }
+
+  void _navigateToCallDevice(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (context) => const CallDeviceScreen()),
+    );
+  }
+
+  void _navigateToCheckLocation(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (context) => const CheckLocationScreen()),
+    );
+  }
+
+  void _showExitDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Exit Application'),
+        content: const Text('Are you sure you want to exit the EV-04 Tracker?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              // In a real app, you might use SystemNavigator.pop() or similar
+            },
+            child: const Text('Exit'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ===== New Screens =====
+
+class CallDeviceScreen extends StatelessWidget {
+  const CallDeviceScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final store = context.watch<DeviceStore>();
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Call Device'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+      ),
+      body: store.devices.isEmpty
+          ? const _EmptyDevicesView(
+              icon: Icons.phone_disabled,
+              title: 'No Devices Available',
+              subtitle: 'Add devices from the Manage Devices menu to make calls.',
+            )
+          : ListView.separated(
+              padding: const EdgeInsets.all(16),
+              itemCount: store.devices.length,
+              separatorBuilder: (context, index) => const SizedBox(height: 12),
+              itemBuilder: (context, index) {
+                final device = store.devices[index];
+                return Card(
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.all(16),
+                    leading: Stack(
+                      alignment: Alignment.bottomRight,
+                      children: [
+                        CircleAvatar(
+                          radius: 24,
+                          backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                          child: Icon(
+                            Icons.person,
+                            color: Theme.of(context).colorScheme.onPrimaryContainer,
+                          ),
+                        ),
+                        if (device.sosActive)
+                          const Positioned(
+                            right: 0,
+                            bottom: 0,
+                            child: Icon(Icons.emergency, size: 16, color: Colors.red),
+                          ),
+                      ],
+                    ),
+                    title: Text(
+                      device.name,
+                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 18),
+                    ),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 4),
+                        Text(
+                          device.phone,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.primary,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Icon(
+                              device.online ? Icons.circle : Icons.circle_outlined,
+                              size: 12,
+                              color: device.online ? Colors.green : Colors.grey,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              device.online ? 'Online' : 'Offline',
+                              style: TextStyle(
+                                color: device.online ? Colors.green : Colors.grey,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    trailing: FilledButton.icon(
+                      onPressed: () => _callNumber(device.phone),
+                      icon: const Icon(Icons.phone),
+                      label: const Text('Call'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: device.sosActive ? Colors.red : null,
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+    );
+  }
+}
+
+class CheckLocationScreen extends StatelessWidget {
+  const CheckLocationScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final store = context.watch<DeviceStore>();
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Check Location'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+      ),
+      body: store.devices.isEmpty
+          ? const _EmptyDevicesView(
+              icon: Icons.location_off,
+              title: 'No Devices Available',
+              subtitle: 'Add devices from the Manage Devices menu to track locations.',
+            )
+          : Column(
+              children: [
+                if (store.anySos) const _SosBanner(),
+                Expanded(
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final wide = constraints.maxWidth >= 900;
+                      if (wide) {
+                        return Row(
+                          children: const [
+                            SizedBox(width: 340, child: _DeviceListPane()),
+                            VerticalDivider(width: 1),
+                            Expanded(child: _MapPane()),
+                          ],
+                        );
+                      } else {
+                        return const _MapWithBottomList();
+                      }
+                    },
+                  ),
+                ),
+              ],
+            ),
+      floatingActionButton: store.devices.isNotEmpty
+          ? FloatingActionButton.extended(
+              onPressed: () => _recenterSelected(context),
+              icon: const Icon(Icons.my_location),
+              label: const Text('Recenter'),
+            )
+          : null,
+    );
+  }
+
+  void _recenterSelected(BuildContext context) {
+    context.read<DeviceStore>().notifyListeners();
+  }
+}
+
+class ManageDevicesScreen extends StatelessWidget {
+  const ManageDevicesScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final store = context.watch<DeviceStore>();
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Manage Devices'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
         actions: [
           IconButton(
             tooltip: 'Add device',
@@ -246,41 +653,95 @@ class _HomePageState extends State<HomePage> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          if (store.anySos) const _SosBanner(),
-          Expanded(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final wide = constraints.maxWidth >= 900;
-                if (wide) {
-                  return Row(
-                    children: const [
-                      SizedBox(width: 340, child: _DeviceListPane()),
-                      VerticalDivider(width: 1),
-                      Expanded(child: _MapPane()),
-                    ],
-                  );
-                } else {
-                  return const _MapWithBottomList();
-                }
+      body: store.devices.isEmpty
+          ? const _EmptyDevicesView(
+              icon: Icons.devices,
+              title: 'No Devices Added',
+              subtitle: 'Tap the + button to add your first tracking device.',
+            )
+          : ListView.separated(
+              padding: const EdgeInsets.all(16),
+              itemCount: store.devices.length,
+              separatorBuilder: (context, index) => const SizedBox(height: 12),
+              itemBuilder: (context, index) {
+                final device = store.devices[index];
+                final selected = store.selected?.id == device.id;
+                return Card(
+                  elevation: selected ? 2 : 0,
+                  color: selected ? Theme.of(context).colorScheme.surfaceContainerHigh : null,
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.all(16),
+                    onTap: () => store.selectDevice(device.id),
+                    leading: Stack(
+                      alignment: Alignment.bottomRight,
+                      children: [
+                        const CircleAvatar(child: Icon(Icons.watch)),
+                        if (device.sosActive)
+                          const Positioned(
+                            right: 0,
+                            bottom: 0,
+                            child: Icon(Icons.emergency, size: 16, color: Colors.red),
+                          ),
+                      ],
+                    ),
+                    title: Text(
+                      device.name,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 4),
+                        Text('Phone: ${device.phone}'),
+                        Text('ID: ${device.id}'),
+                        Text(
+                          '${device.online ? 'Online' : 'Offline'} • ${device.location.latitude.toStringAsFixed(5)}, ${device.location.longitude.toStringAsFixed(5)}',
+                        ),
+                      ],
+                    ),
+                    trailing: Wrap(
+                      spacing: 8,
+                      children: [
+                        IconButton(
+                          tooltip: 'Call',
+                          icon: const Icon(Icons.phone),
+                          onPressed: () => _callNumber(device.phone),
+                        ),
+                        IconButton(
+                          tooltip: 'Remove',
+                          icon: const Icon(Icons.delete_outline),
+                          onPressed: () => _showDeleteConfirmation(context, device, store),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
               },
             ),
-          ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _recenterSelected(context),
-        icon: const Icon(Icons.my_location),
-        label: const Text('Recenter'),
-      ),
     );
   }
 
-  void _recenterSelected(BuildContext context) {
-    // No-op: flutter_map controller is managed inside _MapPane via a GlobalKey.
-    // We notify listeners here to trigger a rebuild (which recenters map on selected device).
-    context.read<DeviceStore>().notifyListeners();
+  void _showDeleteConfirmation(BuildContext context, Device device, DeviceStore store) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Remove Device'),
+        content: Text('Are you sure you want to remove "${device.name}" from tracking?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              store.removeDevice(device.id);
+              Navigator.of(context).pop();
+            },
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _showAddDeviceDialog(BuildContext context) async {
@@ -347,6 +808,146 @@ class _HomePageState extends State<HomePage> {
           ],
         );
       },
+    );
+  }
+}
+
+class SettingsScreen extends StatelessWidget {
+  const SettingsScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Settings'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Card(
+            child: Column(
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.notifications),
+                  title: const Text('Notifications'),
+                  subtitle: const Text('Manage alert preferences'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () {
+                    // TODO: Implement notifications settings
+                  },
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.map),
+                  title: const Text('Map Settings'),
+                  subtitle: const Text('Configure map display options'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () {
+                    // TODO: Implement map settings
+                  },
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.security),
+                  title: const Text('Privacy & Security'),
+                  subtitle: const Text('Manage data and privacy settings'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () {
+                    // TODO: Implement privacy settings
+                  },
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          Card(
+            child: Column(
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.info),
+                  title: const Text('About'),
+                  subtitle: const Text('App version and information'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => _showAboutDialog(context),
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.help),
+                  title: const Text('Help & Support'),
+                  subtitle: const Text('Get help and contact support'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () {
+                    // TODO: Implement help screen
+                  },
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showAboutDialog(BuildContext context) {
+    showAboutDialog(
+      context: context,
+      applicationName: 'EV-04 Tracker',
+      applicationVersion: '1.0.0',
+      applicationIcon: const Icon(Icons.track_changes, size: 48),
+      children: [
+        const Text('A comprehensive family tracking solution for keeping your loved ones safe and connected.'),
+      ],
+    );
+  }
+}
+
+class _EmptyDevicesView extends StatelessWidget {
+  const _EmptyDevicesView({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              icon,
+              size: 80,
+              color: Theme.of(context).colorScheme.outline,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              title,
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              subtitle,
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -570,19 +1171,22 @@ class _DeviceMarker extends StatelessWidget {
     return GestureDetector(
       onTap: () => context.read<DeviceStore>().selectDevice(device.id),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.location_pin, size: 36, color: color),
+          Icon(Icons.location_pin, size: 28, color: color),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            constraints: const BoxConstraints(maxWidth: 40),
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
             decoration: BoxDecoration(
-              color: Colors.black.withOpacity(0.6),
-              borderRadius: BorderRadius.circular(8),
+              color: Colors.black.withOpacity(0.7),
+              borderRadius: BorderRadius.circular(6),
             ),
             child: Text(
               device.name,
-              style: const TextStyle(color: Colors.white, fontSize: 10),
+              style: const TextStyle(color: Colors.white, fontSize: 8),
               overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
             ),
           )
         ],
