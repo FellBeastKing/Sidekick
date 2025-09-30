@@ -19,6 +19,8 @@
 // ------------------------------------------------------------
 
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
@@ -26,8 +28,21 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:mqtt_client/mqtt_client.dart';
+import 'package:mqtt_client/mqtt_server_client.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:permission_handler/permission_handler.dart';
 
-void main() {
+// Global notification service instance
+final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+    FlutterLocalNotificationsPlugin();
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  // Initialize notifications
+  await NotificationService.initialize();
+  
   runApp(const EV04TrackerApp());
 }
 
@@ -38,7 +53,9 @@ class EV04TrackerApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => DeviceStore()..startDemoUpdates()),
+        ChangeNotifierProvider(create: (_) => DeviceStore()
+          ..startDemoUpdates()
+          ..connectToMqtt()),
       ],
       child: MaterialApp(
         title: 'EV‑04 Tracker',
@@ -61,6 +78,7 @@ class Device {
     required this.location,
     this.online = true,
     this.sosActive = false,
+    this.batteryLevel = 100,
     DateTime? lastUpdate,
   }) : lastUpdate = lastUpdate ?? DateTime.now();
 
@@ -70,6 +88,7 @@ class Device {
   LatLng location;
   bool online;
   bool sosActive;
+  int batteryLevel; // Battery level 0-100
   DateTime lastUpdate;
 
   // Breadcrumbs for recent track (last N points)
@@ -82,6 +101,28 @@ class Device {
       _trail.removeAt(0);
     }
   }
+
+  // Battery status helpers
+  bool get isLowBattery => batteryLevel <= 20;
+  bool get isCriticalBattery => batteryLevel <= 10;
+  
+  Color get batteryColor {
+    if (batteryLevel <= 10) return Colors.red;
+    if (batteryLevel <= 20) return Colors.orange;
+    if (batteryLevel <= 50) return Colors.yellow;
+    return Colors.green;
+  }
+
+  IconData get batteryIcon {
+    if (batteryLevel <= 10) return Icons.battery_0_bar;
+    if (batteryLevel <= 20) return Icons.battery_1_bar;
+    if (batteryLevel <= 30) return Icons.battery_2_bar;
+    if (batteryLevel <= 50) return Icons.battery_3_bar;
+    if (batteryLevel <= 60) return Icons.battery_4_bar;
+    if (batteryLevel <= 80) return Icons.battery_5_bar;
+    if (batteryLevel <= 90) return Icons.battery_6_bar;
+    return Icons.battery_full;
+  }
 }
 
 class DeviceUpdate {
@@ -92,6 +133,7 @@ class DeviceUpdate {
     this.sosActive,
     this.name,
     this.phone,
+    this.batteryLevel,
     DateTime? timestamp,
   }) : timestamp = timestamp ?? DateTime.now();
 
@@ -101,7 +143,303 @@ class DeviceUpdate {
   final bool? sosActive;
   final String? name;
   final String? phone;
+  final int? batteryLevel;
   final DateTime timestamp;
+
+  // Factory constructor for MQTT JSON parsing
+  factory DeviceUpdate.fromJson(Map<String, dynamic> json) {
+    return DeviceUpdate(
+      id: json['id'] as String,
+      location: json['location'] != null
+          ? LatLng(
+              (json['location']['lat'] as num).toDouble(),
+              (json['location']['lng'] as num).toDouble(),
+            )
+          : null,
+      online: json['online'] as bool?,
+      sosActive: json['sosActive'] as bool?,
+      name: json['name'] as String?,
+      phone: json['phone'] as String?,
+      batteryLevel: json['batteryLevel'] as int?,
+      timestamp: json['timestamp'] != null
+          ? DateTime.parse(json['timestamp'] as String)
+          : null,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'location': location != null
+          ? {'lat': location!.latitude, 'lng': location!.longitude}
+          : null,
+      'online': online,
+      'sosActive': sosActive,
+      'name': name,
+      'phone': phone,
+      'batteryLevel': batteryLevel,
+      'timestamp': timestamp.toIso8601String(),
+    };
+  }
+}
+
+// ===== Services =====
+
+class NotificationService {
+  static const String _channelId = 'ev04_tracker_channel';
+  static const String _channelName = 'EV-04 Tracker Notifications';
+  static const String _channelDescription = 'Notifications for device alerts and battery status';
+
+  static Future<void> initialize() async {
+    // Request notification permissions
+    await Permission.notification.request();
+
+    const AndroidInitializationSettings initializationSettingsAndroid =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
+
+    const DarwinInitializationSettings initializationSettingsIOS =
+        DarwinInitializationSettings(
+      requestAlertPermission: true,
+      requestBadgePermission: true,
+      requestSoundPermission: true,
+    );
+
+    const InitializationSettings initializationSettings =
+        InitializationSettings(
+      android: initializationSettingsAndroid,
+      iOS: initializationSettingsIOS,
+    );
+
+    await flutterLocalNotificationsPlugin.initialize(initializationSettings);
+
+    // Create notification channel for Android
+    const AndroidNotificationChannel channel = AndroidNotificationChannel(
+      _channelId,
+      _channelName,
+      description: _channelDescription,
+      importance: Importance.high,
+    );
+
+    await flutterLocalNotificationsPlugin
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(channel);
+  }
+
+  static Future<void> showSosAlert(Device device) async {
+    const AndroidNotificationDetails androidPlatformChannelSpecifics =
+        AndroidNotificationDetails(
+      _channelId,
+      _channelName,
+      channelDescription: _channelDescription,
+      importance: Importance.max,
+      priority: Priority.high,
+      color: Colors.red,
+      playSound: true,
+      enableVibration: true,
+    );
+
+    const DarwinNotificationDetails iOSPlatformChannelSpecifics =
+        DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+    );
+
+    const NotificationDetails platformChannelSpecifics = NotificationDetails(
+      android: androidPlatformChannelSpecifics,
+      iOS: iOSPlatformChannelSpecifics,
+    );
+
+    await flutterLocalNotificationsPlugin.show(
+      device.id.hashCode,
+      '🚨 SOS Alert',
+      '${device.name} has activated SOS! Tap to call.',
+      platformChannelSpecifics,
+    );
+  }
+
+  static Future<void> showLowBatteryAlert(Device device) async {
+    const AndroidNotificationDetails androidPlatformChannelSpecifics =
+        AndroidNotificationDetails(
+      _channelId,
+      _channelName,
+      channelDescription: _channelDescription,
+      importance: Importance.high,
+      priority: Priority.high,
+      color: Colors.orange,
+      playSound: true,
+    );
+
+    const DarwinNotificationDetails iOSPlatformChannelSpecifics =
+        DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+    );
+
+    const NotificationDetails platformChannelSpecifics = NotificationDetails(
+      android: androidPlatformChannelSpecifics,
+      iOS: iOSPlatformChannelSpecifics,
+    );
+
+    await flutterLocalNotificationsPlugin.show(
+      device.id.hashCode + 1000, // Different ID for battery notifications
+      '🔋 Low Battery Alert',
+      '${device.name} battery is at ${device.batteryLevel}%',
+      platformChannelSpecifics,
+    );
+  }
+
+  static Future<void> showCriticalBatteryAlert(Device device) async {
+    const AndroidNotificationDetails androidPlatformChannelSpecifics =
+        AndroidNotificationDetails(
+      _channelId,
+      _channelName,
+      channelDescription: _channelDescription,
+      importance: Importance.max,
+      priority: Priority.high,
+      color: Colors.red,
+      playSound: true,
+      enableVibration: true,
+    );
+
+    const DarwinNotificationDetails iOSPlatformChannelSpecifics =
+        DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+    );
+
+    const NotificationDetails platformChannelSpecifics = NotificationDetails(
+      android: androidPlatformChannelSpecifics,
+      iOS: iOSPlatformChannelSpecifics,
+    );
+
+    await flutterLocalNotificationsPlugin.show(
+      device.id.hashCode + 2000, // Different ID for critical battery notifications
+      '⚠️ Critical Battery Alert',
+      '${device.name} battery is critically low at ${device.batteryLevel}%!',
+      platformChannelSpecifics,
+    );
+  }
+}
+
+class MqttService {
+  static const String _broker = 'test.mosquitto.org'; // Public MQTT broker for testing
+  static const int _port = 1883;
+  static const String _clientId = 'ev04_tracker_client';
+  static const String _topicPrefix = 'ev04_tracker';
+
+  MqttServerClient? _client;
+  final StreamController<DeviceUpdate> _updateController = StreamController<DeviceUpdate>.broadcast();
+  
+  Stream<DeviceUpdate> get updateStream => _updateController.stream;
+  bool get isConnected => _client?.connectionStatus?.state == MqttConnectionState.connected;
+
+  Future<bool> connect() async {
+    try {
+      _client = MqttServerClient(_broker, _clientId);
+      _client!.port = _port;
+      _client!.logging(on: true);
+      _client!.keepAlivePeriod = 20;
+      _client!.onDisconnected = _onDisconnected;
+      _client!.onConnected = _onConnected;
+      _client!.onSubscribed = _onSubscribed;
+
+      final connMessage = MqttConnectMessage()
+          .withClientIdentifier(_clientId)
+          .withWillTopic('$_topicPrefix/status')
+          .withWillMessage('Client disconnected')
+          .startClean()
+          .withWillQos(MqttQos.atLeastOnce);
+
+      _client!.connectionMessage = connMessage;
+
+      await _client!.connect();
+
+      if (_client!.connectionStatus?.state == MqttConnectionState.connected) {
+        print('MQTT: Connected to broker');
+        
+        // Subscribe to device updates
+        _client!.subscribe('$_topicPrefix/devices/+/update', MqttQos.atLeastOnce);
+        
+        // Listen for messages
+        _client!.updates!.listen(_onMessage);
+        
+        return true;
+      }
+    } catch (e) {
+      print('MQTT: Connection failed - $e');
+      _client?.disconnect();
+    }
+    return false;
+  }
+
+  void _onConnected() {
+    print('MQTT: Connected');
+  }
+
+  void _onDisconnected() {
+    print('MQTT: Disconnected');
+  }
+
+  void _onSubscribed(String topic) {
+    print('MQTT: Subscribed to $topic');
+  }
+
+  void _onMessage(List<MqttReceivedMessage<MqttMessage>> messages) {
+    for (final message in messages) {
+      final topic = message.topic;
+      final payload = MqttPublishPayload.bytesToStringAsString(
+        (message.payload as MqttPublishMessage).payload.message,
+      );
+
+      try {
+        final json = jsonDecode(payload) as Map<String, dynamic>;
+        final update = DeviceUpdate.fromJson(json);
+        _updateController.add(update);
+        print('MQTT: Received update for device ${update.id}');
+      } catch (e) {
+        print('MQTT: Failed to parse message from $topic: $e');
+      }
+    }
+  }
+
+  Future<void> publishDeviceUpdate(DeviceUpdate update) async {
+    if (!isConnected) return;
+
+    final topic = '$_topicPrefix/devices/${update.id}/update';
+    final payload = jsonEncode(update.toJson());
+
+    final builder = MqttClientPayloadBuilder();
+    builder.addString(payload);
+
+    _client!.publishMessage(topic, MqttQos.atLeastOnce, builder.payload!);
+    print('MQTT: Published update for device ${update.id}');
+  }
+
+  Future<void> publishSosAlert(String deviceId) async {
+    if (!isConnected) return;
+
+    final topic = '$_topicPrefix/devices/$deviceId/sos';
+    final payload = jsonEncode({
+      'deviceId': deviceId,
+      'timestamp': DateTime.now().toIso8601String(),
+      'alert': 'SOS_ACTIVATED'
+    });
+
+    final builder = MqttClientPayloadBuilder();
+    builder.addString(payload);
+
+    _client!.publishMessage(topic, MqttQos.atLeastOnce, builder.payload!);
+    print('MQTT: Published SOS alert for device $deviceId');
+  }
+
+  void disconnect() {
+    _client?.disconnect();
+    _updateController.close();
+  }
 }
 
 // ===== Store =====
@@ -109,11 +447,19 @@ class DeviceStore extends ChangeNotifier {
   final Map<String, Device> _devices = {};
   String? _selectedId;
   StreamSubscription<DeviceUpdate>? _demoSub;
+  StreamSubscription<DeviceUpdate>? _mqttSub;
+  final MqttService _mqttService = MqttService();
+  final Set<String> _notifiedLowBattery = <String>{};
+  final Set<String> _notifiedCriticalBattery = <String>{};
+  final Set<String> _notifiedSos = <String>{};
 
   List<Device> get devices => _devices.values.toList()
     ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
   Device? get selected => _selectedId == null ? null : _devices[_selectedId];
   bool get anySos => _devices.values.any((d) => d.sosActive);
+  bool get anyLowBattery => _devices.values.any((d) => d.isLowBattery);
+  bool get anyCriticalBattery => _devices.values.any((d) => d.isCriticalBattery);
+  bool get mqttConnected => _mqttService.isConnected;
 
   void addDevice(Device d) {
     _devices[d.id] = d;
@@ -123,6 +469,9 @@ class DeviceStore extends ChangeNotifier {
 
   void removeDevice(String id) {
     _devices.remove(id);
+    _notifiedLowBattery.remove(id);
+    _notifiedCriticalBattery.remove(id);
+    _notifiedSos.remove(id);
     if (_selectedId == id) {
       _selectedId = _devices.isEmpty ? null : _devices.keys.first;
     }
@@ -140,6 +489,11 @@ class DeviceStore extends ChangeNotifier {
     final d = _devices[u.id];
     if (d == null) return;
 
+    // Store previous values for notification logic
+    final previousSos = d.sosActive;
+    final previousBattery = d.batteryLevel;
+
+    // Apply updates
     if (u.location != null) {
       d.location = u.location!;
       d.addTrailPoint(u.location!);
@@ -148,11 +502,70 @@ class DeviceStore extends ChangeNotifier {
     if (u.sosActive != null) d.sosActive = u.sosActive!;
     if (u.name != null) d.name = u.name!;
     if (u.phone != null) d.phone = u.phone!;
+    if (u.batteryLevel != null) d.batteryLevel = u.batteryLevel!;
     d.lastUpdate = u.timestamp;
+
+    // Handle notifications
+    _handleNotifications(d, previousSos, previousBattery);
+
     notifyListeners();
   }
 
-  // ---- Demo data plumbing (replace with real backend) ----
+  void _handleNotifications(Device device, bool previousSos, int previousBattery) {
+    // SOS notifications
+    if (device.sosActive && !previousSos) {
+      if (!_notifiedSos.contains(device.id)) {
+        NotificationService.showSosAlert(device);
+        _notifiedSos.add(device.id);
+        _mqttService.publishSosAlert(device.id);
+      }
+    } else if (!device.sosActive && previousSos) {
+      _notifiedSos.remove(device.id);
+    }
+
+    // Battery notifications
+    if (device.isCriticalBattery && previousBattery > 10) {
+      if (!_notifiedCriticalBattery.contains(device.id)) {
+        NotificationService.showCriticalBatteryAlert(device);
+        _notifiedCriticalBattery.add(device.id);
+        _notifiedLowBattery.add(device.id); // Also mark as low battery notified
+      }
+    } else if (device.isLowBattery && previousBattery > 20) {
+      if (!_notifiedLowBattery.contains(device.id)) {
+        NotificationService.showLowBatteryAlert(device);
+        _notifiedLowBattery.add(device.id);
+      }
+    } else if (device.batteryLevel > 25) {
+      // Reset notifications when battery is above 25%
+      _notifiedLowBattery.remove(device.id);
+      _notifiedCriticalBattery.remove(device.id);
+    }
+  }
+
+  // ---- MQTT Integration ----
+  Future<void> connectToMqtt() async {
+    try {
+      final connected = await _mqttService.connect();
+      if (connected) {
+        _mqttSub = _mqttService.updateStream.listen(applyUpdate);
+        print('Connected to MQTT broker');
+      } else {
+        print('Failed to connect to MQTT broker');
+      }
+    } catch (e) {
+      print('MQTT connection error: $e');
+    }
+    notifyListeners();
+  }
+
+  void disconnectFromMqtt() {
+    _mqttService.disconnect();
+    _mqttSub?.cancel();
+    _mqttSub = null;
+    notifyListeners();
+  }
+
+  // ---- Demo data plumbing (can work alongside MQTT) ----
   void startDemoUpdates() {
     // Seed with two example devices around Johannesburg & Cape Town.
     addDevice(Device(
@@ -160,12 +573,14 @@ class DeviceStore extends ChangeNotifier {
       name: 'Daughter',
       phone: '+27115551234',
       location: LatLng(-26.2041, 28.0473), // Johannesburg
+      batteryLevel: 85,
     ));
     addDevice(Device(
       id: '860000000000002',
       name: 'Son',
       phone: '+27215551234',
       location: LatLng(-33.9249, 18.4241), // Cape Town
+      batteryLevel: 45,
     ));
 
     final demo = DemoUpdateService(seed: 42);
@@ -180,6 +595,7 @@ class DeviceStore extends ChangeNotifier {
   @override
   void dispose() {
     stopDemoUpdates();
+    disconnectFromMqtt();
     super.dispose();
   }
 }
@@ -201,22 +617,39 @@ class DemoUpdateService {
       ids[1]: LatLng(-33.9249, 18.4241),
     };
 
+    // Battery levels that slowly decrease
+    final batteryLevels = {
+      ids[0]: 85,
+      ids[1]: 45,
+    };
+
     while (true) {
       await Future<void>.delayed(const Duration(seconds: 2));
       final id = ids[_rng.nextInt(ids.length)];
       final prev = last[id]!;
+      
       // jitter ~100–300 m
       final dLat = (_rng.nextDouble() - 0.5) * 0.003;
       final dLng = (_rng.nextDouble() - 0.5) * 0.003;
       final next = LatLng(prev.latitude + dLat, prev.longitude + dLng);
       last[id] = next;
 
-      final sosFlip = _rng.nextDouble() < 0.05; // 5% chance to toggle
+      // Randomly decrease battery level (simulate battery drain)
+      if (_rng.nextDouble() < 0.1) { // 10% chance to decrease battery
+        final currentBattery = batteryLevels[id]!;
+        if (currentBattery > 0) {
+          batteryLevels[id] = (currentBattery - _rng.nextInt(3)).clamp(0, 100);
+        }
+      }
+
+      final sosFlip = _rng.nextDouble() < 0.05; // 5% chance to toggle SOS
+      final batteryChange = _rng.nextDouble() < 0.15; // 15% chance to update battery
 
       yield DeviceUpdate(
         id: id,
         location: next,
         sosActive: sosFlip ? _rng.nextBool() : null,
+        batteryLevel: batteryChange ? batteryLevels[id] : null,
       );
     }
   }
@@ -239,6 +672,17 @@ class _HomePageState extends State<HomePage> {
       appBar: AppBar(
         title: const Text('EV-04 Tracker'),
         actions: [
+          // MQTT Connection Status
+          IconButton(
+            icon: Icon(
+              store.mqttConnected ? Icons.cloud_done : Icons.cloud_off,
+              color: store.mqttConnected ? Colors.green : Colors.grey,
+            ),
+            tooltip: store.mqttConnected ? 'MQTT Connected' : 'MQTT Disconnected',
+            onPressed: () => store.mqttConnected
+                ? store.disconnectFromMqtt()
+                : store.connectToMqtt(),
+          ),
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert),
             onSelected: (value) => _handleMenuSelection(context, value),
@@ -357,6 +801,81 @@ class _HomePageState extends State<HomePage> {
                     
                     const SizedBox(height: 32),
                     
+                    // Battery Status Section
+                    if (store.devices.isNotEmpty) ...[
+                      Text(
+                        'Device Battery Status',
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 400),
+                        child: Column(
+                          children: store.devices.map((device) {
+                            return Container(
+                              margin: const EdgeInsets.only(bottom: 12),
+                              child: Card(
+                                color: device.isCriticalBattery
+                                    ? Colors.red.shade50
+                                    : device.isLowBattery
+                                        ? Colors.orange.shade50
+                                        : null,
+                                child: Padding(
+                                  padding: const EdgeInsets.all(16.0),
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        device.batteryIcon,
+                                        color: device.batteryColor,
+                                        size: 24,
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              device.name,
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.w600,
+                                                fontSize: 16,
+                                              ),
+                                            ),
+                                            Text(
+                                              '${device.batteryLevel}% battery',
+                                              style: TextStyle(
+                                                color: device.batteryColor,
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      if (device.sosActive)
+                                        const Icon(
+                                          Icons.emergency,
+                                          color: Colors.red,
+                                          size: 20,
+                                        ),
+                                      if (!device.online)
+                                        const Icon(
+                                          Icons.cloud_off,
+                                          color: Colors.grey,
+                                          size: 20,
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                    
                     // Quick Status Info
                     if (store.devices.isNotEmpty)
                       Card(
@@ -402,6 +921,45 @@ class _HomePageState extends State<HomePage> {
                                   ],
                                 ),
                               ],
+                              if (store.anyLowBattery) ...[
+                                const SizedBox(height: 8),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.battery_alert,
+                                      size: 20,
+                                      color: store.anyCriticalBattery ? Colors.red : Colors.orange,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      store.anyCriticalBattery ? 'Critical Battery Alert' : 'Low Battery Alert',
+                                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                        color: store.anyCriticalBattery ? Colors.red : Colors.orange,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                              const SizedBox(height: 8),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    store.mqttConnected ? Icons.cloud_done : Icons.cloud_off,
+                                    size: 16,
+                                    color: store.mqttConnected ? Colors.green : Colors.grey,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    store.mqttConnected ? 'MQTT Connected' : 'MQTT Disconnected',
+                                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: store.mqttConnected ? Colors.green : Colors.grey,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ],
                           ),
                         ),
@@ -552,6 +1110,21 @@ class CallDeviceScreen extends StatelessWidget {
                                 fontSize: 12,
                               ),
                             ),
+                            const SizedBox(width: 12),
+                            Icon(
+                              device.batteryIcon,
+                              size: 12,
+                              color: device.batteryColor,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${device.batteryLevel}%',
+                              style: TextStyle(
+                                color: device.batteryColor,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
                           ],
                         ),
                       ],
@@ -694,6 +1267,23 @@ class ManageDevicesScreen extends StatelessWidget {
                         const SizedBox(height: 4),
                         Text('Phone: ${device.phone}'),
                         Text('ID: ${device.id}'),
+                        Row(
+                          children: [
+                            Icon(
+                              device.batteryIcon,
+                              size: 14,
+                              color: device.batteryColor,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${device.batteryLevel}% battery',
+                              style: TextStyle(
+                                color: device.batteryColor,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
                         Text(
                           '${device.online ? 'Online' : 'Offline'} • ${device.location.latitude.toStringAsFixed(5)}, ${device.location.longitude.toStringAsFixed(5)}',
                         ),

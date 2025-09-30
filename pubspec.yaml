@@ -38,6 +38,11 @@ dependencies:
   latlong2: ^0.9.1
   url_launcher: ^6.3.2
   provider: ^6.1.5+1
+  
+  # MQTT and Notifications
+  mqtt_client: ^10.2.0
+  flutter_local_notifications: ^17.2.2
+  permission_handler: ^11.3.1
 
 dev_dependencies:
   flutter_test:
