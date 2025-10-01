@@ -39,10 +39,10 @@ final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   // Initialize notifications
   await NotificationService.initialize();
-  
+
   runApp(const EV04TrackerApp());
 }
 
@@ -53,9 +53,11 @@ class EV04TrackerApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => DeviceStore()
-          ..startDemoUpdates()
-          ..connectToMqtt()),
+        ChangeNotifierProvider(
+          create: (_) => DeviceStore()
+            ..startDemoUpdates()
+            ..connectToMqtt(),
+        ),
       ],
       child: MaterialApp(
         title: 'EV‑04 Tracker',
@@ -105,7 +107,7 @@ class Device {
   // Battery status helpers
   bool get isLowBattery => batteryLevel <= 20;
   bool get isCriticalBattery => batteryLevel <= 10;
-  
+
   Color get batteryColor {
     if (batteryLevel <= 10) return Colors.red;
     if (batteryLevel <= 20) return Colors.orange;
@@ -188,7 +190,8 @@ class DeviceUpdate {
 class NotificationService {
   static const String _channelId = 'ev04_tracker_channel';
   static const String _channelName = 'EV-04 Tracker Notifications';
-  static const String _channelDescription = 'Notifications for device alerts and battery status';
+  static const String _channelDescription =
+      'Notifications for device alerts and battery status';
 
   static Future<void> initialize() async {
     // Request notification permissions
@@ -199,16 +202,16 @@ class NotificationService {
 
     const DarwinInitializationSettings initializationSettingsIOS =
         DarwinInitializationSettings(
-      requestAlertPermission: true,
-      requestBadgePermission: true,
-      requestSoundPermission: true,
-    );
+          requestAlertPermission: true,
+          requestBadgePermission: true,
+          requestSoundPermission: true,
+        );
 
     const InitializationSettings initializationSettings =
         InitializationSettings(
-      android: initializationSettingsAndroid,
-      iOS: initializationSettingsIOS,
-    );
+          android: initializationSettingsAndroid,
+          iOS: initializationSettingsIOS,
+        );
 
     await flutterLocalNotificationsPlugin.initialize(initializationSettings);
 
@@ -222,29 +225,30 @@ class NotificationService {
 
     await flutterLocalNotificationsPlugin
         .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
+          AndroidFlutterLocalNotificationsPlugin
+        >()
         ?.createNotificationChannel(channel);
   }
 
   static Future<void> showSosAlert(Device device) async {
     const AndroidNotificationDetails androidPlatformChannelSpecifics =
         AndroidNotificationDetails(
-      _channelId,
-      _channelName,
-      channelDescription: _channelDescription,
-      importance: Importance.max,
-      priority: Priority.high,
-      color: Colors.red,
-      playSound: true,
-      enableVibration: true,
-    );
+          _channelId,
+          _channelName,
+          channelDescription: _channelDescription,
+          importance: Importance.max,
+          priority: Priority.high,
+          color: Colors.red,
+          playSound: true,
+          enableVibration: true,
+        );
 
     const DarwinNotificationDetails iOSPlatformChannelSpecifics =
         DarwinNotificationDetails(
-      presentAlert: true,
-      presentBadge: true,
-      presentSound: true,
-    );
+          presentAlert: true,
+          presentBadge: true,
+          presentSound: true,
+        );
 
     const NotificationDetails platformChannelSpecifics = NotificationDetails(
       android: androidPlatformChannelSpecifics,
@@ -262,21 +266,21 @@ class NotificationService {
   static Future<void> showLowBatteryAlert(Device device) async {
     const AndroidNotificationDetails androidPlatformChannelSpecifics =
         AndroidNotificationDetails(
-      _channelId,
-      _channelName,
-      channelDescription: _channelDescription,
-      importance: Importance.high,
-      priority: Priority.high,
-      color: Colors.orange,
-      playSound: true,
-    );
+          _channelId,
+          _channelName,
+          channelDescription: _channelDescription,
+          importance: Importance.high,
+          priority: Priority.high,
+          color: Colors.orange,
+          playSound: true,
+        );
 
     const DarwinNotificationDetails iOSPlatformChannelSpecifics =
         DarwinNotificationDetails(
-      presentAlert: true,
-      presentBadge: true,
-      presentSound: true,
-    );
+          presentAlert: true,
+          presentBadge: true,
+          presentSound: true,
+        );
 
     const NotificationDetails platformChannelSpecifics = NotificationDetails(
       android: androidPlatformChannelSpecifics,
@@ -294,22 +298,22 @@ class NotificationService {
   static Future<void> showCriticalBatteryAlert(Device device) async {
     const AndroidNotificationDetails androidPlatformChannelSpecifics =
         AndroidNotificationDetails(
-      _channelId,
-      _channelName,
-      channelDescription: _channelDescription,
-      importance: Importance.max,
-      priority: Priority.high,
-      color: Colors.red,
-      playSound: true,
-      enableVibration: true,
-    );
+          _channelId,
+          _channelName,
+          channelDescription: _channelDescription,
+          importance: Importance.max,
+          priority: Priority.high,
+          color: Colors.red,
+          playSound: true,
+          enableVibration: true,
+        );
 
     const DarwinNotificationDetails iOSPlatformChannelSpecifics =
         DarwinNotificationDetails(
-      presentAlert: true,
-      presentBadge: true,
-      presentSound: true,
-    );
+          presentAlert: true,
+          presentBadge: true,
+          presentSound: true,
+        );
 
     const NotificationDetails platformChannelSpecifics = NotificationDetails(
       android: androidPlatformChannelSpecifics,
@@ -317,7 +321,8 @@ class NotificationService {
     );
 
     await flutterLocalNotificationsPlugin.show(
-      device.id.hashCode + 2000, // Different ID for critical battery notifications
+      device.id.hashCode +
+          2000, // Different ID for critical battery notifications
       '⚠️ Critical Battery Alert',
       '${device.name} battery is critically low at ${device.batteryLevel}%!',
       platformChannelSpecifics,
@@ -326,16 +331,19 @@ class NotificationService {
 }
 
 class MqttService {
-  static const String _broker = 'test.mosquitto.org'; // Public MQTT broker for testing
+  static const String _broker =
+      'test.mosquitto.org'; // Public MQTT broker for testing
   static const int _port = 1883;
   static const String _clientId = 'ev04_tracker_client';
   static const String _topicPrefix = 'ev04_tracker';
 
   MqttServerClient? _client;
-  final StreamController<DeviceUpdate> _updateController = StreamController<DeviceUpdate>.broadcast();
-  
+  final StreamController<DeviceUpdate> _updateController =
+      StreamController<DeviceUpdate>.broadcast();
+
   Stream<DeviceUpdate> get updateStream => _updateController.stream;
-  bool get isConnected => _client?.connectionStatus?.state == MqttConnectionState.connected;
+  bool get isConnected =>
+      _client?.connectionStatus?.state == MqttConnectionState.connected;
 
   Future<bool> connect() async {
     try {
@@ -360,13 +368,16 @@ class MqttService {
 
       if (_client!.connectionStatus?.state == MqttConnectionState.connected) {
         print('MQTT: Connected to broker');
-        
+
         // Subscribe to device updates
-        _client!.subscribe('$_topicPrefix/devices/+/update', MqttQos.atLeastOnce);
-        
+        _client!.subscribe(
+          '$_topicPrefix/devices/+/update',
+          MqttQos.atLeastOnce,
+        );
+
         // Listen for messages
         _client!.updates!.listen(_onMessage);
-        
+
         return true;
       }
     } catch (e) {
@@ -426,7 +437,7 @@ class MqttService {
     final payload = jsonEncode({
       'deviceId': deviceId,
       'timestamp': DateTime.now().toIso8601String(),
-      'alert': 'SOS_ACTIVATED'
+      'alert': 'SOS_ACTIVATED',
     });
 
     final builder = MqttClientPayloadBuilder();
@@ -453,12 +464,14 @@ class DeviceStore extends ChangeNotifier {
   final Set<String> _notifiedCriticalBattery = <String>{};
   final Set<String> _notifiedSos = <String>{};
 
-  List<Device> get devices => _devices.values.toList()
-    ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+  List<Device> get devices =>
+      _devices.values.toList()
+        ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
   Device? get selected => _selectedId == null ? null : _devices[_selectedId];
   bool get anySos => _devices.values.any((d) => d.sosActive);
   bool get anyLowBattery => _devices.values.any((d) => d.isLowBattery);
-  bool get anyCriticalBattery => _devices.values.any((d) => d.isCriticalBattery);
+  bool get anyCriticalBattery =>
+      _devices.values.any((d) => d.isCriticalBattery);
   bool get mqttConnected => _mqttService.isConnected;
 
   void addDevice(Device d) {
@@ -511,7 +524,11 @@ class DeviceStore extends ChangeNotifier {
     notifyListeners();
   }
 
-  void _handleNotifications(Device device, bool previousSos, int previousBattery) {
+  void _handleNotifications(
+    Device device,
+    bool previousSos,
+    int previousBattery,
+  ) {
     // SOS notifications
     if (device.sosActive && !previousSos) {
       if (!_notifiedSos.contains(device.id)) {
@@ -568,20 +585,24 @@ class DeviceStore extends ChangeNotifier {
   // ---- Demo data plumbing (can work alongside MQTT) ----
   void startDemoUpdates() {
     // Seed with two example devices around Johannesburg & Cape Town.
-    addDevice(Device(
-      id: '860000000000001',
-      name: 'Daughter',
-      phone: '+27115551234',
-      location: LatLng(-26.2041, 28.0473), // Johannesburg
-      batteryLevel: 85,
-    ));
-    addDevice(Device(
-      id: '860000000000002',
-      name: 'Son',
-      phone: '+27215551234',
-      location: LatLng(-33.9249, 18.4241), // Cape Town
-      batteryLevel: 45,
-    ));
+    addDevice(
+      Device(
+        id: '860000000000001',
+        name: 'Daughter',
+        phone: '+27115551234',
+        location: LatLng(-26.2041, 28.0473), // Johannesburg
+        batteryLevel: 85,
+      ),
+    );
+    addDevice(
+      Device(
+        id: '860000000000002',
+        name: 'Son',
+        phone: '+27215551234',
+        location: LatLng(-33.9249, 18.4241), // Cape Town
+        batteryLevel: 45,
+      ),
+    );
 
     final demo = DemoUpdateService(seed: 42);
     _demoSub = demo.stream.listen(applyUpdate);
@@ -618,16 +639,13 @@ class DemoUpdateService {
     };
 
     // Battery levels that slowly decrease
-    final batteryLevels = {
-      ids[0]: 85,
-      ids[1]: 45,
-    };
+    final batteryLevels = {ids[0]: 85, ids[1]: 45};
 
     while (true) {
       await Future<void>.delayed(const Duration(seconds: 2));
       final id = ids[_rng.nextInt(ids.length)];
       final prev = last[id]!;
-      
+
       // jitter ~100–300 m
       final dLat = (_rng.nextDouble() - 0.5) * 0.003;
       final dLng = (_rng.nextDouble() - 0.5) * 0.003;
@@ -635,7 +653,8 @@ class DemoUpdateService {
       last[id] = next;
 
       // Randomly decrease battery level (simulate battery drain)
-      if (_rng.nextDouble() < 0.1) { // 10% chance to decrease battery
+      if (_rng.nextDouble() < 0.1) {
+        // 10% chance to decrease battery
         final currentBattery = batteryLevels[id]!;
         if (currentBattery > 0) {
           batteryLevels[id] = (currentBattery - _rng.nextInt(3)).clamp(0, 100);
@@ -643,7 +662,8 @@ class DemoUpdateService {
       }
 
       final sosFlip = _rng.nextDouble() < 0.05; // 5% chance to toggle SOS
-      final batteryChange = _rng.nextDouble() < 0.15; // 15% chance to update battery
+      final batteryChange =
+          _rng.nextDouble() < 0.15; // 15% chance to update battery
 
       yield DeviceUpdate(
         id: id,
@@ -678,7 +698,9 @@ class _HomePageState extends State<HomePage> {
               store.mqttConnected ? Icons.cloud_done : Icons.cloud_off,
               color: store.mqttConnected ? Colors.green : Colors.grey,
             ),
-            tooltip: store.mqttConnected ? 'MQTT Connected' : 'MQTT Disconnected',
+            tooltip: store.mqttConnected
+                ? 'MQTT Connected'
+                : 'MQTT Disconnected',
             onPressed: () => store.mqttConnected
                 ? store.disconnectFromMqtt()
                 : store.connectToMqtt(),
@@ -728,243 +750,281 @@ class _HomePageState extends State<HomePage> {
             child: Center(
               child: Padding(
                 padding: const EdgeInsets.all(32.0),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    // App Logo/Title Section
-                    Icon(
-                      Icons.track_changes,
-                      size: 80,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'EV-04 Tracker',
-                      style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      // App Logo/Title Section
+                      Icon(
+                        Icons.track_changes,
+                        size: 80,
                         color: Theme.of(context).colorScheme.primary,
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Keep your family safe and connected',
-                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 48),
-                    
-                    // Main Navigation Buttons
-                    ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 400),
-                      child: Column(
-                        children: [
-                          SizedBox(
-                            width: double.infinity,
-                            height: 64,
-                            child: FilledButton.icon(
-                              onPressed: () => _navigateToCallDevice(context),
-                              icon: const Icon(Icons.phone, size: 28),
-                              label: const Text(
-                                'Call Device',
-                                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-                              ),
-                              style: FilledButton.styleFrom(
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          SizedBox(
-                            width: double.infinity,
-                            height: 64,
-                            child: FilledButton.tonalIcon(
-                              onPressed: () => _navigateToCheckLocation(context),
-                              icon: const Icon(Icons.location_on, size: 28),
-                              label: const Text(
-                                'Check Location',
-                                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-                              ),
-                              style: FilledButton.styleFrom(
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    
-                    const SizedBox(height: 32),
-                    
-                    // Battery Status Section
-                    if (store.devices.isNotEmpty) ...[
-                      Text(
-                        'Device Battery Status',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
                       const SizedBox(height: 16),
+                      Text(
+                        'EV-04 Tracker',
+                        style: Theme.of(context).textTheme.headlineMedium
+                            ?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Keep your family safe and connected',
+                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 48),
+
+                      // Main Navigation Buttons
                       ConstrainedBox(
                         constraints: const BoxConstraints(maxWidth: 400),
                         child: Column(
-                          children: store.devices.map((device) {
-                            return Container(
-                              margin: const EdgeInsets.only(bottom: 12),
-                              child: Card(
-                                color: device.isCriticalBattery
-                                    ? Colors.red.shade50
-                                    : device.isLowBattery
-                                        ? Colors.orange.shade50
-                                        : null,
-                                child: Padding(
-                                  padding: const EdgeInsets.all(16.0),
-                                  child: Row(
-                                    children: [
-                                      Icon(
-                                        device.batteryIcon,
-                                        color: device.batteryColor,
-                                        size: 24,
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              device.name,
-                                              style: const TextStyle(
-                                                fontWeight: FontWeight.w600,
-                                                fontSize: 16,
-                                              ),
-                                            ),
-                                            Text(
-                                              '${device.batteryLevel}% battery',
-                                              style: TextStyle(
-                                                color: device.batteryColor,
-                                                fontWeight: FontWeight.w500,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      if (device.sosActive)
-                                        const Icon(
-                                          Icons.emergency,
-                                          color: Colors.red,
-                                          size: 20,
-                                        ),
-                                      if (!device.online)
-                                        const Icon(
-                                          Icons.cloud_off,
-                                          color: Colors.grey,
-                                          size: 20,
-                                        ),
-                                    ],
+                          children: [
+                            SizedBox(
+                              width: double.infinity,
+                              height: 64,
+                              child: FilledButton.icon(
+                                onPressed: () => _navigateToCallDevice(context),
+                                icon: const Icon(Icons.phone, size: 28),
+                                label: const Text(
+                                  'Call Device',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                style: FilledButton.styleFrom(
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16),
                                   ),
                                 ),
                               ),
-                            );
-                          }).toList(),
+                            ),
+                            const SizedBox(height: 16),
+                            SizedBox(
+                              width: double.infinity,
+                              height: 64,
+                              child: FilledButton.tonalIcon(
+                                onPressed: () =>
+                                    _navigateToCheckLocation(context),
+                                icon: const Icon(Icons.location_on, size: 28),
+                                label: const Text(
+                                  'Check Location',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                style: FilledButton.styleFrom(
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      const SizedBox(height: 16),
-                    ],
-                    
-                    // Quick Status Info
-                    if (store.devices.isNotEmpty)
-                      Card(
-                        child: Padding(
-                          padding: const EdgeInsets.all(16.0),
+
+                      const SizedBox(height: 32),
+
+                      // Battery Status Section
+                      if (store.devices.isNotEmpty) ...[
+                        Text(
+                          'Device Battery Status',
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.w600),
+                        ),
+                        const SizedBox(height: 16),
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 400),
                           child: Column(
-                            children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    Icons.devices,
-                                    size: 20,
-                                    color: Theme.of(context).colorScheme.primary,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    '${store.devices.length} device${store.devices.length == 1 ? '' : 's'} connected',
-                                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                      fontWeight: FontWeight.w500,
+                            children: store.devices.map((device) {
+                              return Container(
+                                margin: const EdgeInsets.only(bottom: 12),
+                                child: Card(
+                                  color: device.isCriticalBattery
+                                      ? Colors.red.shade50
+                                      : device.isLowBattery
+                                      ? Colors.orange.shade50
+                                      : null,
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(16.0),
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          device.batteryIcon,
+                                          color: device.batteryColor,
+                                          size: 24,
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                device.name,
+                                                style: const TextStyle(
+                                                  fontWeight: FontWeight.w600,
+                                                  fontSize: 16,
+                                                ),
+                                              ),
+                                              Text(
+                                                '${device.batteryLevel}% battery',
+                                                style: TextStyle(
+                                                  color: device.batteryColor,
+                                                  fontWeight: FontWeight.w500,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        if (device.sosActive)
+                                          const Icon(
+                                            Icons.emergency,
+                                            color: Colors.red,
+                                            size: 20,
+                                          ),
+                                        if (!device.online)
+                                          const Icon(
+                                            Icons.cloud_off,
+                                            color: Colors.grey,
+                                            size: 20,
+                                          ),
+                                      ],
                                     ),
                                   ),
-                                ],
-                              ),
-                              if (store.anySos) ...[
-                                const SizedBox(height: 8),
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+
+                      // Quick Status Info
+                      if (store.devices.isNotEmpty)
+                        Card(
+                          child: Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Column(
+                              children: [
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    const Icon(
-                                      Icons.emergency,
+                                    Icon(
+                                      Icons.devices,
                                       size: 20,
-                                      color: Colors.red,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.primary,
                                     ),
                                     const SizedBox(width: 8),
                                     Text(
-                                      'SOS Alert Active',
-                                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                        color: Colors.red,
-                                        fontWeight: FontWeight.w600,
-                                      ),
+                                      '${store.devices.length} device${store.devices.length == 1 ? '' : 's'} connected',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodyMedium
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.w500,
+                                          ),
                                     ),
                                   ],
                                 ),
-                              ],
-                              if (store.anyLowBattery) ...[
+                                if (store.anySos) ...[
+                                  const SizedBox(height: 8),
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      const Icon(
+                                        Icons.emergency,
+                                        size: 20,
+                                        color: Colors.red,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        'SOS Alert Active',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodyMedium
+                                            ?.copyWith(
+                                              color: Colors.red,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                                if (store.anyLowBattery) ...[
+                                  const SizedBox(height: 8),
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        Icons.battery_alert,
+                                        size: 20,
+                                        color: store.anyCriticalBattery
+                                            ? Colors.red
+                                            : Colors.orange,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        store.anyCriticalBattery
+                                            ? 'Critical Battery Alert'
+                                            : 'Low Battery Alert',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodyMedium
+                                            ?.copyWith(
+                                              color: store.anyCriticalBattery
+                                                  ? Colors.red
+                                                  : Colors.orange,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
                                 const SizedBox(height: 8),
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
                                     Icon(
-                                      Icons.battery_alert,
-                                      size: 20,
-                                      color: store.anyCriticalBattery ? Colors.red : Colors.orange,
+                                      store.mqttConnected
+                                          ? Icons.cloud_done
+                                          : Icons.cloud_off,
+                                      size: 16,
+                                      color: store.mqttConnected
+                                          ? Colors.green
+                                          : Colors.grey,
                                     ),
-                                    const SizedBox(width: 8),
+                                    const SizedBox(width: 4),
                                     Text(
-                                      store.anyCriticalBattery ? 'Critical Battery Alert' : 'Low Battery Alert',
-                                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                        color: store.anyCriticalBattery ? Colors.red : Colors.orange,
-                                        fontWeight: FontWeight.w600,
-                                      ),
+                                      store.mqttConnected
+                                          ? 'MQTT Connected'
+                                          : 'MQTT Disconnected',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodySmall
+                                          ?.copyWith(
+                                            color: store.mqttConnected
+                                                ? Colors.green
+                                                : Colors.grey,
+                                          ),
                                     ),
                                   ],
                                 ),
                               ],
-                              const SizedBox(height: 8),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    store.mqttConnected ? Icons.cloud_done : Icons.cloud_off,
-                                    size: 16,
-                                    color: store.mqttConnected ? Colors.green : Colors.grey,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    store.mqttConnected ? 'MQTT Connected' : 'MQTT Disconnected',
-                                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                      color: store.mqttConnected ? Colors.green : Colors.grey,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
+                            ),
                           ),
                         ),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -982,9 +1042,9 @@ class _HomePageState extends State<HomePage> {
         );
         break;
       case 'settings':
-        Navigator.of(context).push(
-          MaterialPageRoute(builder: (context) => const SettingsScreen()),
-        );
+        Navigator.of(
+          context,
+        ).push(MaterialPageRoute(builder: (context) => const SettingsScreen()));
         break;
       case 'exit':
         _showExitDialog(context);
@@ -993,9 +1053,9 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _navigateToCallDevice(BuildContext context) {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (context) => const CallDeviceScreen()),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (context) => const CallDeviceScreen()));
   }
 
   void _navigateToCheckLocation(BuildContext context) {
@@ -1049,7 +1109,8 @@ class CallDeviceScreen extends StatelessWidget {
           ? const _EmptyDevicesView(
               icon: Icons.phone_disabled,
               title: 'No Devices Available',
-              subtitle: 'Add devices from the Manage Devices menu to make calls.',
+              subtitle:
+                  'Add devices from the Manage Devices menu to make calls.',
             )
           : ListView.separated(
               padding: const EdgeInsets.all(16),
@@ -1065,23 +1126,34 @@ class CallDeviceScreen extends StatelessWidget {
                       children: [
                         CircleAvatar(
                           radius: 24,
-                          backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                          backgroundColor: Theme.of(
+                            context,
+                          ).colorScheme.primaryContainer,
                           child: Icon(
                             Icons.person,
-                            color: Theme.of(context).colorScheme.onPrimaryContainer,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onPrimaryContainer,
                           ),
                         ),
                         if (device.sosActive)
                           const Positioned(
                             right: 0,
                             bottom: 0,
-                            child: Icon(Icons.emergency, size: 16, color: Colors.red),
+                            child: Icon(
+                              Icons.emergency,
+                              size: 16,
+                              color: Colors.red,
+                            ),
                           ),
                       ],
                     ),
                     title: Text(
                       device.name,
-                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 18),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 18,
+                      ),
                     ),
                     subtitle: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1098,7 +1170,9 @@ class CallDeviceScreen extends StatelessWidget {
                         Row(
                           children: [
                             Icon(
-                              device.online ? Icons.circle : Icons.circle_outlined,
+                              device.online
+                                  ? Icons.circle
+                                  : Icons.circle_outlined,
                               size: 12,
                               color: device.online ? Colors.green : Colors.grey,
                             ),
@@ -1106,7 +1180,9 @@ class CallDeviceScreen extends StatelessWidget {
                             Text(
                               device.online ? 'Online' : 'Offline',
                               style: TextStyle(
-                                color: device.online ? Colors.green : Colors.grey,
+                                color: device.online
+                                    ? Colors.green
+                                    : Colors.grey,
                                 fontSize: 12,
                               ),
                             ),
@@ -1164,7 +1240,8 @@ class CheckLocationScreen extends StatelessWidget {
           ? const _EmptyDevicesView(
               icon: Icons.location_off,
               title: 'No Devices Available',
-              subtitle: 'Add devices from the Manage Devices menu to track locations.',
+              subtitle:
+                  'Add devices from the Manage Devices menu to track locations.',
             )
           : Column(
               children: [
@@ -1241,7 +1318,9 @@ class ManageDevicesScreen extends StatelessWidget {
                 final selected = store.selected?.id == device.id;
                 return Card(
                   elevation: selected ? 2 : 0,
-                  color: selected ? Theme.of(context).colorScheme.surfaceContainerHigh : null,
+                  color: selected
+                      ? Theme.of(context).colorScheme.surfaceContainerHigh
+                      : null,
                   child: ListTile(
                     contentPadding: const EdgeInsets.all(16),
                     onTap: () => store.selectDevice(device.id),
@@ -1253,7 +1332,11 @@ class ManageDevicesScreen extends StatelessWidget {
                           const Positioned(
                             right: 0,
                             bottom: 0,
-                            child: Icon(Icons.emergency, size: 16, color: Colors.red),
+                            child: Icon(
+                              Icons.emergency,
+                              size: 16,
+                              color: Colors.red,
+                            ),
                           ),
                       ],
                     ),
@@ -1300,7 +1383,8 @@ class ManageDevicesScreen extends StatelessWidget {
                         IconButton(
                           tooltip: 'Remove',
                           icon: const Icon(Icons.delete_outline),
-                          onPressed: () => _showDeleteConfirmation(context, device, store),
+                          onPressed: () =>
+                              _showDeleteConfirmation(context, device, store),
                         ),
                       ],
                     ),
@@ -1311,12 +1395,18 @@ class ManageDevicesScreen extends StatelessWidget {
     );
   }
 
-  void _showDeleteConfirmation(BuildContext context, Device device, DeviceStore store) {
+  void _showDeleteConfirmation(
+    BuildContext context,
+    Device device,
+    DeviceStore store,
+  ) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Remove Device'),
-        content: Text('Are you sure you want to remove "${device.name}" from tracking?'),
+        content: Text(
+          'Are you sure you want to remove "${device.name}" from tracking?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
@@ -1355,21 +1445,30 @@ class ManageDevicesScreen extends StatelessWidget {
                 children: [
                   TextFormField(
                     controller: nameCtrl,
-                    decoration: const InputDecoration(labelText: 'Display name'),
-                    validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+                    decoration: const InputDecoration(
+                      labelText: 'Display name',
+                    ),
+                    validator: (v) =>
+                        (v == null || v.trim().isEmpty) ? 'Required' : null,
                   ),
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: phoneCtrl,
-                    decoration: const InputDecoration(labelText: 'Phone number (SIM)'),
+                    decoration: const InputDecoration(
+                      labelText: 'Phone number (SIM)',
+                    ),
                     keyboardType: TextInputType.phone,
-                    validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+                    validator: (v) =>
+                        (v == null || v.trim().isEmpty) ? 'Required' : null,
                   ),
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: idCtrl,
-                    decoration: const InputDecoration(labelText: 'Device ID (IMEI/UUID)'),
-                    validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+                    decoration: const InputDecoration(
+                      labelText: 'Device ID (IMEI/UUID)',
+                    ),
+                    validator: (v) =>
+                        (v == null || v.trim().isEmpty) ? 'Required' : null,
                   ),
                 ],
               ),
@@ -1489,7 +1588,9 @@ class SettingsScreen extends StatelessWidget {
       applicationVersion: '1.0.0',
       applicationIcon: const Icon(Icons.track_changes, size: 48),
       children: [
-        const Text('A comprehensive family tracking solution for keeping your loved ones safe and connected.'),
+        const Text(
+          'A comprehensive family tracking solution for keeping your loved ones safe and connected.',
+        ),
       ],
     );
   }
@@ -1514,11 +1615,7 @@ class _EmptyDevicesView extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              icon,
-              size: 80,
-              color: Theme.of(context).colorScheme.outline,
-            ),
+            Icon(icon, size: 80, color: Theme.of(context).colorScheme.outline),
             const SizedBox(height: 16),
             Text(
               title,
@@ -1564,12 +1661,18 @@ class _SosBanner extends StatelessWidget {
               Expanded(
                 child: Text(
                   'SOS from: $names',
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
               TextButton(
                 onPressed: () => _showSosActions(context, offenders),
-                child: const Text('Actions', style: TextStyle(color: Colors.white)),
+                child: const Text(
+                  'Actions',
+                  style: TextStyle(color: Colors.white),
+                ),
               ),
             ],
           ),
@@ -1620,14 +1723,16 @@ class _DeviceListPane extends StatelessWidget {
         final selected = store.selected?.id == d.id;
         return Card(
           elevation: selected ? 2 : 0,
-          color: selected ? Theme.of(context).colorScheme.surfaceContainerHigh : null,
+          color: selected
+              ? Theme.of(context).colorScheme.surfaceContainerHigh
+              : null,
           child: ListTile(
             onTap: () => store.selectDevice(d.id),
             leading: Stack(
               alignment: Alignment.bottomRight,
               children: [
-                const CircleAvatar(child: Icon(Icons.watch))
-              , if (d.sosActive)
+                const CircleAvatar(child: Icon(Icons.watch)),
+                if (d.sosActive)
                   const Positioned(
                     right: 0,
                     bottom: 0,
@@ -1639,18 +1744,21 @@ class _DeviceListPane extends StatelessWidget {
             subtitle: Text(
               '${d.online ? 'Online' : 'Offline'} • ${d.location.latitude.toStringAsFixed(5)}, ${d.location.longitude.toStringAsFixed(5)}',
             ),
-            trailing: Wrap(spacing: 8, children: [
-              IconButton(
-                tooltip: 'Call',
-                icon: const Icon(Icons.phone),
-                onPressed: () => _callNumber(d.phone),
-              ),
-              IconButton(
-                tooltip: 'Remove',
-                icon: const Icon(Icons.delete_outline),
-                onPressed: () => store.removeDevice(d.id),
-              ),
-            ]),
+            trailing: Wrap(
+              spacing: 8,
+              children: [
+                IconButton(
+                  tooltip: 'Call',
+                  icon: const Icon(Icons.phone),
+                  onPressed: () => _callNumber(d.phone),
+                ),
+                IconButton(
+                  tooltip: 'Remove',
+                  icon: const Icon(Icons.delete_outline),
+                  onPressed: () => store.removeDevice(d.id),
+                ),
+              ],
+            ),
           ),
         );
       },
@@ -1674,13 +1782,15 @@ class _MapWithBottomList extends StatelessWidget {
             height: 210,
             decoration: BoxDecoration(
               color: Theme.of(context).colorScheme.surface,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(16),
+              ),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withOpacity(0.08),
                   blurRadius: 12,
                   offset: const Offset(0, -2),
-                )
+                ),
               ],
             ),
             child: const _DeviceListPane(),
@@ -1701,8 +1811,11 @@ class _MapPane extends StatelessWidget {
     final selected = store.selected;
 
     // Fallback center if nothing selected
-    final center = selected?.location ??
-        (devices.isNotEmpty ? devices.first.location : const LatLng(-26.2041, 28.0473));
+    final center =
+        selected?.location ??
+        (devices.isNotEmpty
+            ? devices.first.location
+            : const LatLng(-26.2041, 28.0473));
 
     final markers = <Marker>[
       for (final d in devices)
@@ -1720,7 +1833,9 @@ class _MapPane extends StatelessWidget {
       options: MapOptions(
         initialCenter: center,
         initialZoom: 12,
-        interactionOptions: const InteractionOptions(flags: ~InteractiveFlag.doubleTapDragZoom),
+        interactionOptions: const InteractionOptions(
+          flags: ~InteractiveFlag.doubleTapDragZoom,
+        ),
         onTap: (tapPosition, latlng) {},
       ),
       children: [
@@ -1778,7 +1893,7 @@ class _DeviceMarker extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
             ),
-          )
+          ),
         ],
       ),
     );
@@ -1805,7 +1920,10 @@ class _SelectedCard extends StatelessWidget {
               children: [
                 const Icon(Icons.watch, size: 18),
                 const SizedBox(width: 8),
-                Text(device.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+                Text(
+                  device.name,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
                 const SizedBox(width: 8),
                 if (device.sosActive)
                   const Icon(Icons.emergency, color: Colors.red, size: 18),
@@ -1814,7 +1932,9 @@ class _SelectedCard extends StatelessWidget {
             const SizedBox(height: 8),
             Text('ID: ${device.id}'),
             Text('Phone: ${device.phone}'),
-            Text('Last: ${device.location.latitude.toStringAsFixed(5)}, ${device.location.longitude.toStringAsFixed(5)}'),
+            Text(
+              'Last: ${device.location.latitude.toStringAsFixed(5)}, ${device.location.longitude.toStringAsFixed(5)}',
+            ),
             Text('Updated: ${device.lastUpdate}'),
             const SizedBox(height: 8),
             Row(
@@ -1827,13 +1947,15 @@ class _SelectedCard extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
                 OutlinedButton.icon(
-                  onPressed: () => _copyToClipboard(context,
-                      '${device.location.latitude},${device.location.longitude}'),
+                  onPressed: () => _copyToClipboard(
+                    context,
+                    '${device.location.latitude},${device.location.longitude}',
+                  ),
                   icon: const Icon(Icons.copy),
                   label: const Text('Copy coords'),
                 ),
               ],
-            )
+            ),
           ],
         ),
       ),
@@ -1849,7 +1971,7 @@ Future<void> _callNumber(String number) async {
 }
 
 void _copyToClipboard(BuildContext context, String text) {
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(content: Text('Copied: $text')),
-  );
+  ScaffoldMessenger.of(
+    context,
+  ).showSnackBar(SnackBar(content: Text('Copied: $text')));
 }
